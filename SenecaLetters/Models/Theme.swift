@@ -6,3 +6,12 @@
 //
 
 import Foundation
+
+struct Theme: Codable, Identifiable, Hashable {
+    
+    let id: Int
+    let name: String
+    let description: String?
+    let color: String?
+    
+}

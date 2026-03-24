@@ -10,23 +10,24 @@ import SwiftData
 
 @main
 struct SenecaLettersApp: App {
-    var sharedModelContainer: ModelContainer = {
-        let schema = Schema([
-            Item.self,
-        ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-
-        do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
-        } catch {
-            fatalError("Could not create ModelContainer: \(error)")
-        }
-    }()
-
+    
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .onAppear(perform: setupNotifications)
         }
-        .modelContainer(sharedModelContainer)
+        .modelContainer(for: [SavedQuote.self, FavoriteLetter.self, ReadingProgress.self])
     }
+    
+    private func setupNotifications() {
+            // Запрашиваем разрешение
+            UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, error in
+                if granted {
+                    print("Разрешение на уведомления получено.")
+                } else if let error = error {
+                    print("Ошибка при запросе разрешений: \(error.localizedDescription)")
+                }
+            }
+        }
+    
 }
