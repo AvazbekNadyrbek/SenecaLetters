@@ -8,6 +8,8 @@ import SwiftData
 
 @Model
 class FavoriteLetter {
+    #Index<FavoriteLetter>([\.letterId], [\.savedAt])
+
     var letterId: Int
     var savedAt: Date
 

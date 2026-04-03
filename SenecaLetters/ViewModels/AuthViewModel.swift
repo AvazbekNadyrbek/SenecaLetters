@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import AuthenticationServices
 
 // @Observable — iOS 17+ macro. The view automatically re-renders when any
 // stored property changes. No need for @Published on every field.
@@ -61,6 +62,46 @@ class AuthViewModel {
     func toggleMode() {
         isLoginMode.toggle()
         errorMessage = nil      // clear errors when switching modes
+    }
+
+    // MARK: - Sign In with Apple
+
+    func signInWithApple(result: Result<ASAuthorization, Error>) async {
+        isLoading = true
+        errorMessage = nil
+        defer { isLoading = false }
+
+        switch result {
+        case .success(let auth):
+            guard let credential = auth.credential as? ASAuthorizationAppleIDCredential,
+                  let tokenData = credential.identityToken,
+                  let identityToken = String(data: tokenData, encoding: .utf8)
+            else {
+                errorMessage = "Apple Sign In failed: missing credentials"
+                return
+            }
+
+            let nameParts = [credential.fullName?.givenName, credential.fullName?.familyName]
+                .compactMap { $0 }
+                .joined(separator: " ")
+
+            do {
+                try await apiClient.authenticateWithApple(
+                    identityToken: identityToken,
+                    userIdentifier: credential.user,
+                    email: credential.email,
+                    fullName: nameParts.isEmpty ? nil : nameParts
+                )
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+
+        case .failure(let error):
+            // User cancelled the sheet — not an error worth showing
+            if (error as? ASAuthorizationError)?.code != .canceled {
+                errorMessage = error.localizedDescription
+            }
+        }
     }
 
     // MARK: - Private helpers

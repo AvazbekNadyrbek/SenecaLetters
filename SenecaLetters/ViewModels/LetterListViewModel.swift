@@ -46,8 +46,8 @@ class LetterListViewModel {
            // Фильтр по поиску
            if !searchText.isEmpty {
                result = result.filter { letter in
-                   letter.title.localizedCaseInsensitiveContains(searchText) ||
-                   (letter.content?.localizedCaseInsensitiveContains(searchText) ?? false)
+                   letter.title.localizedStandardContains(searchText) ||
+                   (letter.content?.localizedStandardContains(searchText) ?? false)
                }
            }
            

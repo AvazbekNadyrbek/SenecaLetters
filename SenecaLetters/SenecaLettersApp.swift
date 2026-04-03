@@ -7,27 +7,42 @@
 
 import SwiftUI
 import SwiftData
+import UserNotifications
 
 @main
 struct SenecaLettersApp: App {
-    
+
+    private let container: ModelContainer
+    @State private var downloadService: DownloadService
+
+    init() {
+        let schema = Schema([
+            SavedQuote.self,
+            FavoriteLetter.self,
+            ReadingProgress.self,
+            DownloadedAudio.self
+        ])
+        let container = try! ModelContainer(for: schema, migrationPlan: AppMigrationPlan.self)
+        self.container = container
+        self._downloadService = State(
+            initialValue: DownloadService(modelContext: container.mainContext)
+        )
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .onAppear(perform: setupNotifications)
+                .task { await requestNotificationAuthorization() }
+                .environment(downloadService)
         }
-        .modelContainer(for: [SavedQuote.self, FavoriteLetter.self, ReadingProgress.self])
+        .modelContainer(container)
     }
-    
-    private func setupNotifications() {
-            // Запрашиваем разрешение
-            UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, error in
-                if granted {
-                    print("Разрешение на уведомления получено.")
-                } else if let error = error {
-                    print("Ошибка при запросе разрешений: \(error.localizedDescription)")
-                }
-            }
+
+    private func requestNotificationAuthorization() async {
+        do {
+            try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound])
+        } catch {
+            print("Notification authorization error: \(error.localizedDescription)")
         }
-    
+    }
 }

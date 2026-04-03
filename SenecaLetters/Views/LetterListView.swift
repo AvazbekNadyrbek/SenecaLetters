@@ -13,9 +13,9 @@ struct LetterListView: View {
     var body: some View {
         NavigationStack {
             List {
-                // Фильтр по темам
+                // Theme filter strip
                 if !viewModel.allThemes.isEmpty {
-                    ScrollView(.horizontal, showsIndicators: false) {
+                    ScrollView(.horizontal) {
                         HStack(spacing: 8) {
                             ForEach(viewModel.allThemes, id: \.self) { theme in
                                 ThemeTag(
@@ -27,11 +27,12 @@ struct LetterListView: View {
                         }
                         .padding(.horizontal, 4)
                     }
+                    .scrollIndicators(.hidden)
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                     .listRowSeparator(.hidden)
                 }
 
-                // Письма
+                // Letters
                 ForEach(viewModel.filteredLetters) { letter in
                     NavigationLink(value: letter) {
                         LetterRow(letter: letter)
@@ -42,32 +43,20 @@ struct LetterListView: View {
             .navigationSubtitle("126 писем")
             .listStyle(.plain)
             .toolbar {
-                
                 ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        isDarkMode.toggle()
-                        // Sync reading theme: dark mode on → dark theme; off → restore light
-                        if isDarkMode {
-                            rawTheme = Constants.ReaderTheme.dark.rawValue
-                        } else if rawTheme == Constants.ReaderTheme.dark.rawValue {
-                            rawTheme = Constants.ReaderTheme.light.rawValue
-                        }
-                    } label: {
-                        Image(systemName: isDarkMode ? "sun.max.fill" : "moon.fill")
-                            .foregroundStyle(isDarkMode ? .white : .primary)
+                    Button(action: toggleDarkMode) {
+                        Label(
+                            isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode",
+                            systemImage: isDarkMode ? "sun.max.fill" : "moon.fill"
+                        )
                     }
+                    .foregroundStyle(isDarkMode ? .white : .primary)
                 }
-                
+
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        
-                    } label: {
-                        Image(systemName: "person.circle")
-                            .foregroundStyle(isDarkMode ? .white : .primary)
-                    }
+                    Button("Profile", systemImage: "person.circle") { }
+                        .foregroundStyle(isDarkMode ? .white : .primary)
                 }
-                
-               
             }
             .navigationDestination(for: Letter.self) { letter in
                 ReaderView(letter: letter)
@@ -98,22 +87,13 @@ struct LetterListView: View {
             }
         }
     }
-    
-    // MARK: - Helper Properties
-    
-    private var greetingText: String {
-        let hour = Calendar.current.component(.hour, from: Date())
-        switch hour {
-        case 0..<12: return "Good morning"
-        case 12..<17: return "Good afternoon"
-        case 17..<22: return "Good evening"
-        default: return "Good night"
+
+    private func toggleDarkMode() {
+        isDarkMode.toggle()
+        if isDarkMode {
+            rawTheme = Constants.ReaderTheme.dark.rawValue
+        } else if rawTheme == Constants.ReaderTheme.dark.rawValue {
+            rawTheme = Constants.ReaderTheme.light.rawValue
         }
-    }
-    
-    private var userInitials: String {
-        // TODO: Get from actual user profile when available
-        // For now, return a placeholder
-        return "ME"
     }
 }

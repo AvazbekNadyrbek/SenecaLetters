@@ -29,6 +29,7 @@ enum APIError: LocalizedError {
 
 // MARK: API CLient = our Kellner
 // @oberbale - seeing the changles automatically
+@MainActor
 @Observable
 class APIClient {
     
@@ -66,6 +67,26 @@ class APIClient {
     func register(username: String, email: String, password: String) async throws {
         let body = RegisterRequest(login: username, email: email, password: password)
         try await send(path: "/register", method: "POST", body: body)
+    }
+
+    func authenticateWithApple(
+        identityToken: String,
+        userIdentifier: String,
+        email: String?,
+        fullName: String?
+    ) async throws {
+        let body = AppleAuthRequest(
+            identityToken: identityToken,
+            userIdentifier: userIdentifier,
+            email: email,
+            fullName: fullName
+        )
+        let response: TokenResponse = try await request(
+            path: "/authenticate/apple",
+            method: "POST",
+            body: body
+        )
+        self.token = response.idToken
     }
 
     // For endpoints that return no body (e.g. 201 Created with empty response)

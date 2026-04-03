@@ -18,13 +18,14 @@ enum Constants {
         static let accentLight = Color(red: 0.98, green: 0.93, blue: 0.85) // #FAEEDA
     }
 
+    /// Returns a Georgia custom font that scales with the user's preferred text size.
     enum Fonts {
-        static func serif(_ size: CGFloat) -> Font {
-            .custom("Georgia", size: size)
+        static func serif(_ size: CGFloat, relativeTo textStyle: Font.TextStyle = .body) -> Font {
+            .custom("Georgia", size: size, relativeTo: textStyle)
         }
 
-        static func serifBold(_ size: CGFloat) -> Font {
-            .custom("Georgia-Bold", size: size)
+        static func serifBold(_ size: CGFloat, relativeTo textStyle: Font.TextStyle = .body) -> Font {
+            .custom("Georgia-Bold", size: size, relativeTo: textStyle)
         }
     }
 

@@ -29,7 +29,7 @@ class LetterServices {
     // Вызывает POST /api/favorites с телом запроса
     func addToFavorites(letterId: Int, userId: Int) async throws -> Favorite {
         let body = FavoriteRequest(
-            createdAt: ISO8601DateFormatter().string(from: Date()),
+            createdAt: Date.now.ISO8601Format(),
             letter: LetterRef(id: letterId),
             user: UserRef(id: userId)
         )

@@ -77,7 +77,7 @@ struct SelectableLetterText: UIViewRepresentable {
     }
 
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: UITextView, context: Context) -> CGSize? {
-        let width = proposal.width ?? UIScreen.main.bounds.width
+        let width = proposal.width ?? 320
         return uiView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
     }
 

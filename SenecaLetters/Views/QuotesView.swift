@@ -22,7 +22,7 @@ struct QuotesView: View {
                 } else {
                     List {
                         ForEach(quotes) { quote in
-                            quoteRow(quote)
+                            QuoteRowView(quote: quote)
                         }
                         .onDelete { indexSet in
                             indexSet.forEach { modelContext.delete(quotes[$0]) }
@@ -34,16 +34,22 @@ struct QuotesView: View {
             .navigationTitle("Quotes")
         }
     }
+}
 
-    private func quoteRow(_ quote: SavedQuote) -> some View {
+// MARK: - Quote Row
+
+private struct QuoteRowView: View {
+    let quote: SavedQuote
+
+    var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(quote.text)
-                .font(Constants.Fonts.serif(15))
+                .font(Constants.Fonts.serif(15, relativeTo: .callout))
                 .lineLimit(4)
                 .foregroundStyle(.primary)
 
             Text("Letter \(quote.letterNumber) · \(quote.letterTitle)")
-                .font(.system(size: 12))
+                .font(.footnote)
                 .foregroundStyle(Constants.Colors.accent)
         }
         .padding(.vertical, 4)

@@ -4,21 +4,21 @@
 //
 
 import SwiftUI
+import AuthenticationServices
 
 struct AuthView: View {
 
     @Bindable var viewModel: AuthViewModel
     @State private var isSheetPresented: Bool = true
-    
+
     var body: some View {
-        ZStack() {
+        ZStack {
             // Background image
             Image("SenecaFrameImg")
                 .resizable()
                 .scaledToFill()
                 .ignoresSafeArea()
                 .overlay {
-                    // Subtle gradient for depth
                     LinearGradient(
                         colors: [.black.opacity(0.4), .black.opacity(0.1)],
                         startPoint: .bottom,
@@ -28,52 +28,67 @@ struct AuthView: View {
                 }
         }
         .sheet(isPresented: $isSheetPresented) {
-            authSheet
-                .presentationDetents([.medium])
+            AuthSheetView(viewModel: viewModel)
+                .presentationDetents([.fraction(0.7)])
                 .presentationDragIndicator(.hidden)
                 .presentationBackgroundInteraction(.enabled)
                 .interactiveDismissDisabled()
         }
         .background(.black)
     }
-    
-    // MARK: - Auth Sheet Content
-    
-    private var authSheet: some View {
+}
+
+// MARK: - Auth Sheet
+
+private struct AuthSheetView: View {
+    @Bindable var viewModel: AuthViewModel
+
+    var body: some View {
         ScrollView {
             VStack(alignment: .center, spacing: 24) {
-                header
-                formFields
-                submitButton
-                toggleModeButton
+                AuthHeaderView(viewModel: viewModel)
+                AuthFormFieldsView(viewModel: viewModel)
+                AuthSubmitButton(viewModel: viewModel)
+                AuthToggleModeButton(viewModel: viewModel)
+                AppleSignInSection(viewModel: viewModel)
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 24)
         }
         .scrollBounceBehavior(.basedOnSize)
     }
+}
 
-    // MARK: - Subviews
+// MARK: - Auth Header
 
-    private var header: some View {
+private struct AuthHeaderView: View {
+    let viewModel: AuthViewModel
+
+    var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Seneca Letters")
-                .font(Constants.Fonts.serifBold(26))
+                .font(Constants.Fonts.serifBold(26, relativeTo: .title))
                 .foregroundStyle(Constants.Colors.accent)
 
             Text(viewModel.isLoginMode ? "Welcome back" : "Create an account")
-                .font(Constants.Fonts.serif(15))
+                .font(Constants.Fonts.serif(15, relativeTo: .callout))
                 .foregroundStyle(.secondary)
         }
         .padding(.bottom, 4)
     }
+}
 
-    private var formFields: some View {
+// MARK: - Auth Form Fields
+
+private struct AuthFormFieldsView: View {
+    @Bindable var viewModel: AuthViewModel
+
+    var body: some View {
         VStack(spacing: 14) {
-            AuthField(label: "Username", text: $viewModel.username)
+            AuthFieldView(label: "Username", text: $viewModel.username)
 
             if !viewModel.isLoginMode {
-                AuthField(
+                AuthFieldView(
                     label: "Email",
                     text: $viewModel.email,
                     keyboardType: .emailAddress
@@ -81,7 +96,7 @@ struct AuthView: View {
                 .transition(.move(edge: .top).combined(with: .opacity))
             }
 
-            AuthField(label: "Password", text: $viewModel.password, isSecure: true)
+            AuthFieldView(label: "Password", text: $viewModel.password, isSecure: true)
 
             if let error = viewModel.errorMessage {
                 Text(error)
@@ -93,8 +108,14 @@ struct AuthView: View {
         }
         .animation(.easeInOut(duration: 0.25), value: viewModel.isLoginMode)
     }
+}
 
-    private var submitButton: some View {
+// MARK: - Submit Button
+
+private struct AuthSubmitButton: View {
+    let viewModel: AuthViewModel
+
+    var body: some View {
         Button {
             Task { await viewModel.submit() }
         } label: {
@@ -104,20 +125,26 @@ struct AuthView: View {
                         .tint(.white)
                 } else {
                     Text(viewModel.isLoginMode ? "Log In" : "Sign Up")
-                        .font(Constants.Fonts.serifBold(16))
+                        .font(Constants.Fonts.serifBold(16, relativeTo: .callout))
                 }
             }
             .frame(maxWidth: .infinity)
             .frame(height: 48)
             .background(Constants.Colors.accent)
             .foregroundStyle(.white)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .clipShape(.rect(cornerRadius: 12))
             .shadow(color: Constants.Colors.accent.opacity(0.3), radius: 8, y: 4)
         }
         .disabled(viewModel.isLoading)
     }
+}
 
-    private var toggleModeButton: some View {
+// MARK: - Toggle Mode Button
+
+private struct AuthToggleModeButton: View {
+    let viewModel: AuthViewModel
+
+    var body: some View {
         Button {
             viewModel.toggleMode()
         } label: {
@@ -128,40 +155,39 @@ struct AuthView: View {
                     .fontWeight(.semibold)
                     .foregroundStyle(Constants.Colors.accent)
             }
-            .font(Constants.Fonts.serif(14))
+            .font(Constants.Fonts.serif(14, relativeTo: .footnote))
         }
     }
 }
 
-// MARK: - Reusable field component
+// MARK: - Apple Sign In Section
 
-private struct AuthField: View {
-    let label: String
-    @Binding var text: String
-    var keyboardType: UIKeyboardType = .default
-    var isSecure: Bool = false
+private struct AppleSignInSection: View {
+    let viewModel: AuthViewModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(label)
-                .font(Constants.Fonts.serif(12))
-                .foregroundStyle(.secondary)
-
-            Group {
-                if isSecure {
-                    SecureField("", text: $text)
-                } else {
-                    TextField("", text: $text)
-                        .keyboardType(keyboardType)
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.never)
-                }
+        VStack(spacing: 12) {
+            HStack {
+                Rectangle().fill(.separator).frame(height: 1)
+                Text("or")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 8)
+                Rectangle().fill(.separator).frame(height: 1)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 11)
-            .background(Constants.Colors.accentLight.opacity(0.35))
-            .clipShape(RoundedRectangle(cornerRadius: 10))
+
+            SignInWithAppleButton(viewModel.isLoginMode ? .signIn : .signUp) { request in
+                request.requestedScopes = [.fullName, .email]
+            } onCompletion: { result in
+                Task { await viewModel.signInWithApple(result: result) }
+            }
+            .frame(height: 50)
+            .clipShape(.rect(cornerRadius: 12))
+            .id(viewModel.isLoginMode)
+            .transition(.opacity)
+            .animation(.easeInOut(duration: 0.25), value: viewModel.isLoginMode)
         }
+        .padding(.top, 4)
     }
 }
 

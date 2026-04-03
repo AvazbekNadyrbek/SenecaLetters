@@ -8,6 +8,8 @@ import SwiftData
 
 @Model
 class SavedQuote {
+    #Index<SavedQuote>([\.letterNumber], [\.savedAt])
+
     @Attribute(.unique) var id: UUID
     var text: String
     var letterTitle: String

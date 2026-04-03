@@ -8,7 +8,6 @@ import SwiftUI
 struct PlayerAreaView: View {
     var audioService: AudioService
     var onTap: () -> Void
-    var animation: Namespace.ID
 
     var body: some View {
         Group {
@@ -29,10 +28,10 @@ struct PlayerAreaView: View {
     private var placeholder: some View {
         HStack(spacing: 10) {
             Image(systemName: "headphones")
-                .font(.system(size: 16))
+                .font(.callout)
                 .foregroundStyle(Constants.Colors.accent.opacity(0.6))
             Text("Choose a letter to listen")
-                .font(.system(size: 13))
+                .font(.footnote)
                 .foregroundStyle(.secondary)
             Spacer()
         }
@@ -40,15 +39,18 @@ struct PlayerAreaView: View {
         .padding(.vertical, 10)
     }
 
-    @ViewBuilder
     private var miniPlayer: some View {
-        if #available(iOS 18, *) {
+        Button(action: onTap) {
             MiniPlayerView(audioService: audioService)
-                .matchedTransitionSource(id: "MINIPLAYER", in: animation)
-                .onTapGesture { onTap() }
-        } else {
-            MiniPlayerView(audioService: audioService)
-                .onTapGesture { onTap() }
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Open audio player")
     }
 }
+
+//MiniPlayerView(audioService: audioService)
+//     47 -            .background {
+//     48 -                Button("Open audio player", action: onTap)
+//     49 -                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+//     50 -                    .buttonStyle(.plain)
+//     51 -            }

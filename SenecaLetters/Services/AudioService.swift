@@ -46,18 +46,23 @@ class AudioService {
     
     // MARK: - Загрузить аудио
     // Вызывается когда юзер открывает письмо
-    func load(urlString: String, title: String, subtitle: String = "") {
+    func load(urlString: String, localURL: URL? = nil, title: String, subtitle: String = "") {
         stop()
         currentLetterTitle = title
         currentLetterSubtitle = subtitle
         isPlayerActive = true
-        
-        // Собираем полный URL
-        let fullURL = urlString.hasPrefix("http")
-            ? urlString
-            : Constants.baseURL + urlString
-        
-        guard let url = URL(string: fullURL) else { return }
+
+        // Use a locally downloaded file when available, otherwise stream from network.
+        let url: URL
+        if let local = localURL, FileManager.default.fileExists(atPath: local.path()) {
+            url = local
+        } else {
+            let fullURLString = urlString.hasPrefix("http")
+                ? urlString
+                : Constants.baseURL + urlString
+            guard let remote = URL(string: fullURLString) else { return }
+            url = remote
+        }
         
         // Создаём плеер
         let item = AVPlayerItem(url: url)
@@ -68,8 +73,10 @@ class AudioService {
             forInterval: CMTime(seconds: 0.5, preferredTimescale: 600),
             queue: .main
         ) { [weak self, weak item] time in
-            guard let self = self, let item = item else { return }
-            Task { @MainActor in
+            guard let self, let item else { return }
+            // queue: .main guarantees main-thread delivery; assumeIsolated encodes
+            // that contract without spawning a new Task on every tick.
+            MainActor.assumeIsolated {
                 self.currentTime = time.seconds
                 self.duration = item.duration.seconds.isNaN
                     ? 0
@@ -129,11 +136,9 @@ class AudioService {
         currentLetterSubtitle = ""
     }
     
-    // MARK: - Форматирование времени
+    // MARK: - Time formatting
     private func formatTime(_ time: TimeInterval) -> String {
         guard time.isFinite && time >= 0 else { return "0:00" }
-        let minutes = Int(time) / 60
-        let seconds = Int(time) % 60
-        return String(format: "%d:%02d", minutes, seconds)
+        return Duration.seconds(time).formatted(.time(pattern: .minuteSecond))
     }
 }
