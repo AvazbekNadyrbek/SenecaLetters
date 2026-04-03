@@ -311,7 +311,7 @@ private struct ReaderAudioButton: View {
     let isCurrentLetter: Bool
 
     var body: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 7) {
             // Simple SF symbol play/pause button
             Button {
                 if isCurrentLetter {
@@ -329,7 +329,7 @@ private struct ReaderAudioButton: View {
                 Image(systemName: isCurrentLetter && audioService.isPlaying
                       ? "pause.circle.fill"
                       : "play.circle.fill")
-                    .font(.title)
+                    .font(.title2)
                     .foregroundStyle(Constants.Colors.accent)
             }
             .accessibilityLabel(isCurrentLetter && audioService.isPlaying ? "Pause" : "Play")
