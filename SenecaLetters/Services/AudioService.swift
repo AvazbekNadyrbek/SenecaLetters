@@ -40,10 +40,17 @@ class AudioService {
     }
     
     // MARK: - Приватные свойства
-    
+
     private var player: AVPlayer?
     private var timeObserver: Any?       // Следит за позицией каждую секунду
-    
+
+    init() {
+        // Without .playback category, audio is silenced by the ringer/mute switch
+        // and won't continue when the screen locks.
+        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
+        try? AVAudioSession.sharedInstance().setActive(true)
+    }
+
     // MARK: - Загрузить аудио
     // Вызывается когда юзер открывает письмо
     func load(urlString: String, localURL: URL? = nil, title: String, subtitle: String = "") {

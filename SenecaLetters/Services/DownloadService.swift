@@ -10,10 +10,15 @@ import SwiftData
 @Observable
 class DownloadService {
 
-    /// Letters currently being downloaded.
+    /// Cached set of letter IDs with a valid local file.
+    /// This is a STORED property — @Observable tracks it, so views re-render
+    /// the moment a download completes or a file is deleted.
+    private(set) var downloadedLetterIds: Set<Int> = []
+
+    /// Letters whose download task is currently running.
     var activeDownloads: Set<Int> = []
 
-    /// Per-letter error message, set when a download fails.
+    /// Per-letter error from the most recent failed download attempt.
     var downloadErrors: [Int: String] = [:]
 
     private var downloadTasks: [Int: Task<Void, Never>] = [:]
@@ -21,31 +26,35 @@ class DownloadService {
 
     init(modelContext: ModelContext) {
         self.modelContext = modelContext
+        loadFromStore()
     }
 
     // MARK: - Queries
 
     func isDownloaded(letterId: Int) -> Bool {
-        localURL(for: letterId) != nil
-    }
-
-    /// Returns the on-disk URL only when both the SwiftData record and the
-    /// physical file exist. Guards against stale records after manual deletion.
-    func localURL(for letterId: Int) -> URL? {
-        guard let record = fetchRecord(letterId: letterId) else { return nil }
-        let url = record.localURL
-        return FileManager.default.fileExists(atPath: url.path()) ? url : nil
+        downloadedLetterIds.contains(letterId)
     }
 
     func isActive(letterId: Int) -> Bool {
         activeDownloads.contains(letterId)
     }
 
+    /// Returns the on-disk URL only when the cached set says it's there
+    /// AND the physical file actually exists.
+    func localURL(for letterId: Int) -> URL? {
+        guard downloadedLetterIds.contains(letterId),
+              let record = fetchRecord(letterId: letterId)
+        else { return nil }
+        let url = record.localURL
+        return FileManager.default.fileExists(atPath: url.path()) ? url : nil
+    }
+
     // MARK: - Download
 
-    /// Starts a managed download task. Synchronous — no `Task {}` needed in the view.
-    func startDownload(letterId: Int, audioURL: URL) {
-        // Cancel any in-flight download for this letter before starting a new one.
+    /// Starts a managed, cancellable download task.
+    /// Synchronous — no `Task {}` wrapper needed at the call site.
+    /// Pass `authToken` if the audio endpoint requires a Bearer token.
+    func startDownload(letterId: Int, audioURL: URL, authToken: String? = nil) {
         downloadTasks[letterId]?.cancel()
         downloadErrors[letterId] = nil
 
@@ -56,10 +65,11 @@ class DownloadService {
                 downloadTasks[letterId] = nil
             }
             do {
-                try await performDownload(letterId: letterId, audioURL: audioURL)
+                try await performDownload(letterId: letterId, audioURL: audioURL, authToken: authToken)
+                // Update the cached set so every view observing it re-renders immediately.
+                downloadedLetterIds.insert(letterId)
             } catch is CancellationError {
-                // Normal: task was cancelled (view disappeared or user tapped cancel).
-                // Do not surface this as an error.
+                // User cancelled or view disappeared — not an error worth showing.
             } catch {
                 downloadErrors[letterId] = error.localizedDescription
             }
@@ -77,6 +87,8 @@ class DownloadService {
         try? FileManager.default.removeItem(at: record.localURL)
         modelContext.delete(record)
         try modelContext.save()
+        // Update cached set so views re-render immediately.
+        downloadedLetterIds.remove(letterId)
     }
 
     func clearError(letterId: Int) {
@@ -85,17 +97,41 @@ class DownloadService {
 
     // MARK: - Private
 
-    private func performDownload(letterId: Int, audioURL: URL) async throws {
+    /// Populates the in-memory cache from persisted SwiftData records on startup.
+    private func loadFromStore() {
+        let descriptor = FetchDescriptor<DownloadedAudio>()
+        guard let records = try? modelContext.fetch(descriptor) else { return }
+        downloadedLetterIds = Set(
+            records
+                .filter { FileManager.default.fileExists(atPath: $0.localURL.path()) }
+                .map { $0.letterId }
+        )
+    }
+
+    private func performDownload(letterId: Int, audioURL: URL, authToken: String? = nil) async throws {
         let audioDir = URL.documentsDirectory.appending(path: "audio", directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: audioDir, withIntermediateDirectories: true)
 
         let relativePath = "audio/letter-\(letterId).mp3"
         let destinationURL = URL.documentsDirectory.appending(path: relativePath)
 
-        // URLSession.download suspends here — MainActor is free during the transfer.
-        let (tempURL, response) = try await URLSession.shared.download(from: audioURL)
+        // Build request — add Bearer token if the endpoint requires authentication.
+        var request = URLRequest(url: audioURL)
+        if let token = authToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
 
-        // Cancellation check after resuming — in case the task was cancelled
+        // URLSession suspends here — MainActor is free during the transfer.
+        let (tempURL, response) = try await URLSession.shared.download(for: request)
+
+        // Reject server error responses (401, 404, 500…) before saving anything to disk.
+        // Without this check a 401 HTML page would be saved as an "audio" file.
+        if let http = response as? HTTPURLResponse, http.statusCode >= 400 {
+            try? FileManager.default.removeItem(at: tempURL)
+            throw URLError(.badServerResponse)
+        }
+
+        // Check cancellation after resuming — the task may have been cancelled
         // while URLSession was finishing the last bytes.
         try Task.checkCancellation()
 
@@ -105,6 +141,7 @@ class DownloadService {
         try? FileManager.default.removeItem(at: destinationURL)
         try FileManager.default.moveItem(at: tempURL, to: destinationURL)
 
+        // Remove any stale record before inserting the fresh one.
         if let existing = fetchRecord(letterId: letterId) {
             modelContext.delete(existing)
         }

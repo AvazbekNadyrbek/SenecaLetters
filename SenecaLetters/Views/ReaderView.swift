@@ -345,6 +345,8 @@ private struct DownloadButton: View {
     let letter: Letter
     let downloadService: DownloadService
 
+    @State private var showDeleteConfirmation = false
+
     var body: some View {
         Group {
             if downloadService.isActive(letterId: letter.id) {
@@ -361,13 +363,24 @@ private struct DownloadButton: View {
                 .font(.title2)
                 .foregroundStyle(.red)
             } else if downloadService.isDownloaded(letterId: letter.id) {
-                // Downloaded — tap to remove offline copy
-                Button("Delete offline audio", systemImage: "arrow.down.circle.fill") {
-                    try? downloadService.delete(letterId: letter.id)
+                // Downloaded — tap to confirm deletion
+                Button("Remove offline audio", systemImage: "arrow.down.circle.fill") {
+                    showDeleteConfirmation = true
                 }
                 .labelStyle(.iconOnly)
                 .font(.title2)
                 .foregroundStyle(Constants.Colors.accent)
+                .confirmationDialog(
+                    "Remove offline audio?",
+                    isPresented: $showDeleteConfirmation,
+                    titleVisibility: .visible
+                ) {
+                    Button("Remove Download", role: .destructive) {
+                        try? downloadService.delete(letterId: letter.id)
+                    }
+                } message: {
+                    Text("You can download it again any time while connected.")
+                }
             } else {
                 // Not downloaded — tap to download
                 Button("Download for offline", systemImage: "arrow.down.circle") {
